@@ -2,8 +2,10 @@ import Vue from 'vue'
 import App from './App.vue'
 import router from './router'
 import store from './store'
+import FontAwesomeIcon from '@/utils/FontAwsomeImporter'
 
-Vue.config.productionTip = false
+Vue.config.productionTip = false;
+Vue.component('font-awesome-icon', FontAwesomeIcon);
 
 new Vue({
   router,

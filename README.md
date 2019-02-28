@@ -1,5 +1,5 @@
 # todo
-
+基于vue的todolist，用element-ui写的，有兴趣可以看一下
 ## Project setup
 ```
 npm install

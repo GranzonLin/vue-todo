@@ -68,6 +68,16 @@
                             :data="tableData.done.data"
                             tooltip-effect="dark"
                             style="width: 100%">
+                        <el-table-column type="expand">
+                            <template slot-scope="props">
+                                <el-form label-position="left" class="demo-table-expand">
+                                    <el-form-item label="待办内容:">
+                                        <span>{{ props.row.content }}</span>
+                                    </el-form-item>
+                                    <el-button type="text">删除</el-button>
+                                </el-form>
+                            </template>
+                        </el-table-column>
                         <el-table-column v-for="(item,index) in tableData.done.columns"
                                          :prop="item.key"
                                          :label="item.title"

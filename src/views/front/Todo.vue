@@ -8,7 +8,19 @@
                 </div>
                 <div class="user-info-content">
                     <p class="icon"><font-awesome-icon icon="user"/></p>
-                    <h3>user</h3>
+                    <h3>
+                        <el-popover
+                                placement="bottom"
+                                width="30"
+                                trigger="hover">
+                            <div style="text-align: center; margin: 0;line-height: 34px;">
+                                <el-button type="primary" size="mini" style="width:140px;margin-left:0;">个人中心</el-button>
+                                <el-button type="danger" size="mini" style="width:140px;margin-left:0;">注销</el-button>
+                            </div>
+                            <div slot="reference" style="cursor: pointer">Lin</div>
+                        </el-popover>
+                    </h3>
+
                 </div>
             </div>
         </div>
@@ -20,18 +32,17 @@
                 </div>
                 <div class="list-table">
                     <el-table
-                            ref="multipleTable"
                             :data="tableData.todo.data"
                             tooltip-effect="dark"
-                            style="width: 100%"
-                            @selection-change="handleSelectionChange">
+                            style="width: 100%">
                         <el-table-column type="expand">
                             <template slot-scope="props">
                                 <el-form label-position="left" class="demo-table-expand">
                                     <el-form-item label="待办内容:">
                                         <span>{{ props.row.content }}</span>
                                     </el-form-item>
-                                    <el-button type="text">删除</el-button>
+                                    <el-button size="mini" type="primary" icon="el-icon-edit" @click="modifyTodo(props.row,props.$index)">修改</el-button>
+                                    <el-button size="mini" type="danger" icon="el-icon-delete" @click="deleteTodo(props.row,props.$index)">删除</el-button>
                                 </el-form>
                             </template>
                         </el-table-column>
@@ -74,7 +85,7 @@
                                     <el-form-item label="待办内容:">
                                         <span>{{ props.row.content }}</span>
                                     </el-form-item>
-                                    <el-button type="text">删除</el-button>
+                                    <el-button size="mini" type="danger" icon="el-icon-delete" @click="deleteDone(props.row,props.$index)">删除</el-button>
                                 </el-form>
                             </template>
                         </el-table-column>
@@ -121,11 +132,34 @@
                 <el-button type="primary" @click="addTodo">确 定</el-button>
             </div>
         </el-dialog>
+
+        <el-dialog title="修改待办" :visible.sync="dialogFormVisible" width="35%">
+            <el-form :model="modifyForm">
+                <el-form-item label="标题" :label-width="formLabelWidth">
+                    <el-input v-model="modifyForm.title" autocomplete="off"></el-input>
+                </el-form-item>
+                <el-form-item label="内容" :label-width="formLabelWidth">
+                    <el-input type="textarea" v-model="modifyForm.content" autocomplete="off"></el-input>
+                </el-form-item>
+                <el-form-item label="到期时间" :label-width="formLabelWidth">
+                    <el-date-picker style="width: 100%"
+                                    v-model="modifyForm.deadTime"
+                                    type="datetime"
+                                    placeholder="选择过期时间">
+                    </el-date-picker>
+                </el-form-item>
+            </el-form>
+            <div slot="footer" class="dialog-footer">
+                <el-button @click="dialogFormVisible = false">取 消</el-button>
+                <el-button type="primary" @click="addTodo">确 定</el-button>
+            </div>
+        </el-dialog>
     </div>
 </template>
 
 <script>
-    import {Table,TableColumn,Button,Dialog,Form,FormItem,Input,DatePicker,Checkbox} from "element-ui"
+    import {Table,TableColumn,Button,Dialog,Form,FormItem,Input,DatePicker,Checkbox,MessageBox,Message,Popover} from "element-ui"
+    import dateFormat from 'dateformat';
 
     export default {
         name: "Todo",
@@ -139,11 +173,17 @@
             ElInput:Input,
             ElDatePicker:DatePicker,
             ElCheckbox:Checkbox,
+            ElPopover:Popover,
         },
         data(){
             return{
                 dialogFormVisible: false,
                 form: {
+                    title:"",
+                    content:"",
+                    deadTime:""
+                },
+                modifyForm:{
                     title:"",
                     content:"",
                     deadTime:""
@@ -181,16 +221,20 @@
                         ],
                         data:[
                             {
+                                "todoId":"1",
                                 "title":"454545",
-                                "content":"今天干啥好呢",
+                                "content":"今天干啥好呢天干啥好呢",
                                 "publishTime":"444",
+                                "finishTime":"444",
                                 "deadline":"45485",
                                 "status":false
                             },
                             {
+                                "todoId":"2",
                                 "title":"sadas",
                                 "content":"今天去买台思域吧",
                                 "publishTime":"asd",
+                                "finishTime":"asd",
                                 "deadline":"123456",
                                 "status":false
                             },
@@ -229,12 +273,14 @@
                                 "title":"454545",
                                 "publishTime":"444",
                                 "deadline":"45485",
+                                "finishTime":"asd",
                                 "status":true
                             },
                             {
                                 "title":"sadas",
                                 "publishTime":"asd",
                                 "deadline":"huah",
+                                "finishTime":"asd",
                                 "status":true
                             },
                         ]
@@ -243,26 +289,84 @@
             }
         },
         methods:{
+            // 格式化时间
+            formatDate(dateStr){
+                if(dateStr)
+                    return dateFormat(new Date(dateStr*1000).getTime(),"mm月dd");
+                else return false;
+            },
             //打开添加todo的弹窗
             openAddTodoDialog(){
                 this.dialogFormVisible = true
             },
+            // 添加待办
             addTodo(){
                 let arr = [];
                 arr["title"] = this.form.title;
                 arr["content"] = this.form.content;
-                arr["deadline"] = this.form.deadline;
+                arr["deadline"] = this.formatDate(this.form.deadTime.getTime()/1000);
                 arr["status"] = false;
+                arr["publishTime"] =  this.formatDate(new Date().getTime()/1000);
+                console.log(this.form.deadTime.getTime()/1000);
                 this.tableData.todo.data.push(arr);
+                this.dialogFormVisible = false;
+                this.form.title = "";
+                this.form.content = "";
+                this.form.deadTime = "";
             },
-            handleSelectionChange(val) {
-                this.multipleSelection = val;
-            },
+            //todo变done
             handleTodo(row,index){
                 row.status = true;
                 this.tableData.todo.data.splice(index,1);
                 this.tableData.done.data.push(row);
                 this.$forceUpdate()
+            },
+            // 打开修改todo的弹窗
+            modifyTodo(row,index){
+                this.dialogFormVisible = true;
+                this.modifyForm.title = row.title;
+                this.modifyForm.content = row.content;
+                this.modifyForm.deadTime = row.deadline;
+            },
+            // 删除待办
+            deleteTodo(row,index){
+                MessageBox.confirm('此操作将永久删除该条记录, 是否继续?', '提示',{
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    this.tableData.todo.data.splice(index,1);
+                    Message.success({
+                        message: '删除成功!',
+                        duration:"1000"
+                    });
+                }).catch(() => {
+                    Message.info({
+                        type: 'info',
+                        message: '已取消删除',
+                        duration:"1000"
+                    });
+                });
+            },
+            //删除已完成
+            deleteDone(row,index){
+                MessageBox.confirm('此操作将永久删除该条记录, 是否继续?', '提示',{
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    this.tableData.done.data.splice(index,1);
+                    Message.success({
+                        message: '删除成功!',
+                        duration:"1000"
+                    });
+                }).catch(() => {
+                    Message.info({
+                        type: 'info',
+                        message: '已取消删除',
+                        duration:"1000"
+                    });
+                });
             }
         }
     }

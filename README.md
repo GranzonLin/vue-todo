@@ -1,5 +1,6 @@
 # todo
-基于vue的todolist，用element-ui写的，有兴趣可以看一下
+基于vue的todolist，用element-ui写的，有兴趣可以看一下；
+后端项目地址在这：https://github.com/GranzonLin/todo-server
 ## Project setup
 ```
 npm install

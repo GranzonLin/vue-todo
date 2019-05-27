@@ -9,12 +9,12 @@ export default new Router({
     routes: [
         {
             path: '/',
-            name: 'login',
+            name: 'Login',
             component: () => import('./views/front/Login.vue')
         },
         {
             path: '/todo',
-            name: 'todo',
+            name: 'Todo',
             component: () => import( './views/front/Todo.vue')
         }
     ]

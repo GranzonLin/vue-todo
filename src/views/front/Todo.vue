@@ -15,9 +15,9 @@
                                 trigger="hover">
                             <div style="text-align: center; margin: 0;line-height: 34px;">
                                 <el-button type="primary" size="mini" style="width:140px;margin-left:0;">个人中心</el-button>
-                                <el-button type="danger" size="mini" style="width:140px;margin-left:0;">注销</el-button>
+                                <el-button type="danger" size="mini" style="width:140px;margin-left:0;" @click="logout">注销</el-button>
                             </div>
-                            <div slot="reference" style="cursor: pointer">Lin</div>
+                            <div slot="reference" style="cursor: pointer">{{userName}}</div>
                         </el-popover>
                     </h3>
 
@@ -39,9 +39,9 @@
                             <template slot-scope="props">
                                 <el-form label-position="left" class="demo-table-expand">
                                     <el-form-item label="待办内容:">
-                                        <span>{{ props.row.content }}</span>
+                                        <span>{{ props.row.todo_content }}</span>
                                     </el-form-item>
-                                    <el-button size="mini" type="primary" icon="el-icon-edit" @click="modifyTodo(props.row,props.$index)">修改</el-button>
+                                    <el-button size="mini" type="primary" icon="el-icon-edit" @click="openModifyTodoDialog(props.row,props.$index)">修改</el-button>
                                     <el-button size="mini" type="danger" icon="el-icon-delete" @click="deleteTodo(props.row,props.$index)">删除</el-button>
                                 </el-form>
                             </template>
@@ -60,7 +60,7 @@
                                 width="100"
                                 align="center">
                             <template slot-scope="scope">
-                                <el-checkbox v-model="scope.row.status" @change="handleTodo(scope.row,scope.$index)"></el-checkbox>
+                                <el-checkbox v-model="scope.row.todo_status" @change="handleTodo(scope.row,scope.$index)"></el-checkbox>
                             </template>
                         </el-table-column>
                     </el-table>
@@ -83,7 +83,7 @@
                             <template slot-scope="props">
                                 <el-form label-position="left" class="demo-table-expand">
                                     <el-form-item label="待办内容:">
-                                        <span>{{ props.row.content }}</span>
+                                        <span>{{ props.row.todo_content }}</span>
                                     </el-form-item>
                                     <el-button size="mini" type="danger" icon="el-icon-delete" @click="deleteDone(props.row,props.$index)">删除</el-button>
                                 </el-form>
@@ -103,7 +103,7 @@
                                 width="100"
                                 align="center">
                             <template slot-scope="scope">
-                                <el-checkbox v-model="scope.row.status" :disabled="scope.row.status"></el-checkbox>
+                                <el-checkbox v-model="scope.row.todo_status" :disabled="scope.row.todo_status"></el-checkbox>
                             </template>
                         </el-table-column>
                     </el-table>
@@ -119,13 +119,6 @@
                 <el-form-item label="内容" :label-width="formLabelWidth">
                     <el-input type="textarea" v-model="form.content" autocomplete="off"></el-input>
                 </el-form-item>
-                <el-form-item label="到期时间" :label-width="formLabelWidth">
-                    <el-date-picker style="width: 100%"
-                            v-model="form.deadTime"
-                            type="datetime"
-                            placeholder="选择过期时间">
-                    </el-date-picker>
-                </el-form-item>
             </el-form>
             <div slot="footer" class="dialog-footer">
                 <el-button @click="dialogFormVisible = false">取 消</el-button>
@@ -133,7 +126,7 @@
             </div>
         </el-dialog>
 
-        <el-dialog title="修改待办" :visible.sync="dialogFormVisible" width="35%">
+        <el-dialog title="修改待办" :visible.sync="modifyDialogFormVisible" width="35%">
             <el-form :model="modifyForm">
                 <el-form-item label="标题" :label-width="formLabelWidth">
                     <el-input v-model="modifyForm.title" autocomplete="off"></el-input>
@@ -141,17 +134,10 @@
                 <el-form-item label="内容" :label-width="formLabelWidth">
                     <el-input type="textarea" v-model="modifyForm.content" autocomplete="off"></el-input>
                 </el-form-item>
-                <el-form-item label="到期时间" :label-width="formLabelWidth">
-                    <el-date-picker style="width: 100%"
-                                    v-model="modifyForm.deadTime"
-                                    type="datetime"
-                                    placeholder="选择过期时间">
-                    </el-date-picker>
-                </el-form-item>
             </el-form>
             <div slot="footer" class="dialog-footer">
-                <el-button @click="dialogFormVisible = false">取 消</el-button>
-                <el-button type="primary" @click="addTodo">确 定</el-button>
+                <el-button @click="modifyDialogFormVisible = false">取 消</el-button>
+                <el-button type="primary" @click="modifyTodo">确 定</el-button>
             </div>
         </el-dialog>
     </div>
@@ -160,6 +146,10 @@
 <script>
     import {Table,TableColumn,Button,Dialog,Form,FormItem,Input,DatePicker,Checkbox,MessageBox,Message,Popover} from "element-ui"
     import dateFormat from 'dateformat';
+    import Jwt from '@/utils/Jwt'
+    import api from '@/Request/api';
+    import Request from '@/Request';
+    import qs from 'qs';
 
     export default {
         name: "Todo",
@@ -178,17 +168,23 @@
         data(){
             return{
                 dialogFormVisible: false,
+                modifyDialogFormVisible: false,
+                // 新建todo的表单
                 form: {
                     title:"",
-                    content:"",
-                    deadTime:""
+                    content:""
                 },
+                // 修改todo的表单
                 modifyForm:{
+                    todoId:"",
                     title:"",
-                    content:"",
-                    deadTime:""
+                    content:""
                 },
                 formLabelWidth: '70px',
+
+                todoId:"",
+                // 用户名
+                userName:"",
                 // 表格数据
                 tableData:{
                     todo:{
@@ -201,43 +197,16 @@
                             },
                             {
                                 title: '标题',
-                                key: 'title',
+                                key: 'todo_title',
                             },
                             {
                                 title: '发布时间',
-                                key: 'publishTime',
-                                sortable: true
-                            },
-                            {
-                                title: '完成时间',
-                                key: 'finishTime',
-                                sortable: true
-                            },
-                            {
-                                title: '到期时间',
-                                key: 'deadline',
+                                key: 'todo_publish_time',
                                 sortable: true
                             }
                         ],
                         data:[
-                            {
-                                "todoId":"1",
-                                "title":"454545",
-                                "content":"今天干啥好呢天干啥好呢",
-                                "publishTime":"444",
-                                "finishTime":"444",
-                                "deadline":"45485",
-                                "status":false
-                            },
-                            {
-                                "todoId":"2",
-                                "title":"sadas",
-                                "content":"今天去买台思域吧",
-                                "publishTime":"asd",
-                                "finishTime":"asd",
-                                "deadline":"123456",
-                                "status":false
-                            },
+
                         ],
                     },
                     done:{
@@ -250,83 +219,168 @@
                             },
                             {
                                 title: '标题',
-                                key: 'title',
+                                key: 'todo_title',
                             },
                             {
                                 title: '发布时间',
-                                key: 'publishTime',
+                                key: 'todo_publish_time',
                                 sortable: true
                             },
                             {
                                 title: '完成时间',
-                                key: 'finishTime',
-                                sortable: true
-                            },
-                            {
-                                title: '到期时间',
-                                key: 'deadline',
+                                key: 'todo_finish_time',
                                 sortable: true
                             }
                         ],
-                        data:[
-                            {
-                                "title":"454545",
-                                "publishTime":"444",
-                                "deadline":"45485",
-                                "finishTime":"asd",
-                                "status":true
-                            },
-                            {
-                                "title":"sadas",
-                                "publishTime":"asd",
-                                "deadline":"huah",
-                                "finishTime":"asd",
-                                "status":true
-                            },
-                        ]
+                        data:[]
                     }
                 }
             }
         },
+        created(){
+            this.userName = Jwt.getName();
+            this.getTodoList();
+            this.getDoneList();
+        },
         methods:{
+            logout(){
+                Jwt.cleanToken();
+                this.$router.push({path:'/'})
+            },
             // 格式化时间
             formatDate(dateStr){
                 if(dateStr)
                     return dateFormat(new Date(dateStr*1000).getTime(),"mm月dd");
                 else return false;
             },
+            //获取todo列表
+            async getTodoList(){
+                let response;
+                try{
+                    response = await this.$axios.get(api.getTodoList)
+                }catch (e) {
+                    if(process.env.NODE_ENV === 'development'){
+                        console.error(e);
+                    }
+                    return;
+                }
+                if(Request.handleException(this,response.data)){
+                    this.tableData.todo.data = response.data.data;
+                    for(let item of this.tableData.todo.data){
+                        item.todo_publish_time = this.formatDate(item.todo_create_time)
+                    }
+                }
+            },
+
+            //获取已办列表
+            async getDoneList(){
+                let response;
+                try{
+                    response = await this.$axios.get(api.getDoneList)
+                }catch (e) {
+                    if(process.env.NODE_ENV === 'development'){
+                        console.error(e);
+                    }
+                    return;
+                }
+                if(Request.handleException(this,response.data)){
+                    this.tableData.done.data = response.data.data;
+                    for(let item of this.tableData.done.data){
+                        item.todo_publish_time = this.formatDate(item.todo_create_time);
+                        item.todo_finish_time = this.formatDate(item.todo_finish_time);
+                        if(item.todo_status === 1){
+                            item.todo_status = true;
+                        }
+                    }
+                }
+            },
             //打开添加todo的弹窗
             openAddTodoDialog(){
                 this.dialogFormVisible = true
             },
             // 添加待办
-            addTodo(){
-                let arr = [];
-                arr["title"] = this.form.title;
-                arr["content"] = this.form.content;
-                arr["deadline"] = this.formatDate(this.form.deadTime.getTime()/1000);
-                arr["status"] = false;
-                arr["publishTime"] =  this.formatDate(new Date().getTime()/1000);
-                console.log(this.form.deadTime.getTime()/1000);
-                this.tableData.todo.data.push(arr);
-                this.dialogFormVisible = false;
-                this.form.title = "";
-                this.form.content = "";
-                this.form.deadTime = "";
+            async addTodo(){
+                let response;
+                try{
+                    response = await this.$axios.post(api.addTodo,qs.stringify({
+                        todo_title:this.form.title,
+                        todo_content:this.form.content,
+                    }))
+                }catch (e) {
+                    if(process.env.NODE_ENV === 'development'){
+                        console.error(e);
+                    }
+                    return;
+                }
+                if(Request.handleException(this,response.data)){
+                    Message.success({
+                        message:response.data.msg,
+                        duration:2000
+                    });
+                    this.getTodoList();
+                    this.dialogFormVisible = false;
+                    this.form.title="";
+                    this.form.content="";
+                }
             },
             //todo变done
-            handleTodo(row,index){
-                row.status = true;
-                this.tableData.todo.data.splice(index,1);
-                this.tableData.done.data.push(row);
-                this.$forceUpdate()
+            async handleTodo(row,index){
+                if(row.todo_status){
+                    let response;
+                    try{
+                        response = await this.$axios.post(api.finishTodo,qs.stringify({
+                            todo_id:row.todo_id
+                        }))
+                    }catch (e) {
+                        if(process.env.NODE_ENV === 'development'){
+                            console.error(e);
+                        }
+                        return;
+                    }
+                    if(Request.handleException(this,response.data)){
+                        Message.success({
+                            message:response.data.msg,
+                            duration:2000
+                        });
+                        this.getTodoList();
+                        this.getDoneList();
+                        this.$forceUpdate()
+                    }
+                }
             },
             // 打开修改todo的弹窗
-            modifyTodo(row,index){
-                this.dialogFormVisible = true;
-                this.modifyForm.title = row.title;
-                this.modifyForm.content = row.content;
-                this.modifyForm.deadTime = row.deadline;
+            async openModifyTodoDialog(row,index){
+                console.log(row);
+                this.modifyDialogFormVisible = true;
+                this.modifyForm.todoId = row.todo_id;
+                this.modifyForm.title = row.todo_title;
+                this.modifyForm.content = row.todo_content;
+
+                /**/
+            },
+            // 修改待办
+            async modifyTodo(){
+                let response;
+                try{
+                    response = await this.$axios.post(api.modifyTodo,qs.stringify({
+                        todo_id:this.modifyForm.todoId,
+                        todo_title:this.modifyForm.title,
+                        todo_content:this.modifyForm.content
+                    }))
+                }catch (e) {
+                    if(process.env.NODE_ENV === 'development'){
+                        console.error(e);
+                    }
+                    return;
+                }
+                if(Request.handleException(this,response.data)){
+                    Message.success({
+                        message:response.data.msg,
+                        duration:2000
+                    });
+                    this.getTodoList();
+                    this.modifyDialogFormVisible = false;
+                }
             },
             // 删除待办
             deleteTodo(row,index){
@@ -334,12 +388,25 @@
                     confirmButtonText: '确定',
                     cancelButtonText: '取消',
                     type: 'warning'
-                }).then(() => {
-                    this.tableData.todo.data.splice(index,1);
-                    Message.success({
-                        message: '删除成功!',
-                        duration:"1000"
-                    });
+                }).then(async () => {
+                    let response;
+                    try{
+                        response = await this.$axios.post(api.deleteItem,qs.stringify({
+                            todo_id:row.todo_id
+                        }))
+                    }catch (e) {
+                        if(process.env.NODE_ENV === 'development'){
+                            console.error(e);
+                        }
+                        return;
+                    }
+                    if(Request.handleException(this,response.data)){
+                        Message.success({
+                            message:response.data.msg,
+                            duration:2000
+                        });
+                        this.getTodoList();
+                    }
                 }).catch(() => {
                     Message.info({
                         type: 'info',
@@ -354,12 +421,25 @@
                     confirmButtonText: '确定',
                     cancelButtonText: '取消',
                     type: 'warning'
-                }).then(() => {
-                    this.tableData.done.data.splice(index,1);
-                    Message.success({
-                        message: '删除成功!',
-                        duration:"1000"
-                    });
+                }).then(async () => {
+                    let response;
+                    try{
+                        response = await this.$axios.post(api.deleteItem,qs.stringify({
+                            todo_id:row.todo_id
+                        }))
+                    }catch (e) {
+                        if(process.env.NODE_ENV === 'development'){
+                            console.error(e);
+                        }
+                        return;
+                    }
+                    if(Request.handleException(this,response.data)){
+                        Message.success({
+                            message:response.data.msg,
+                            duration:2000
+                        });
+                        this.getDoneList();
+                    }
                 }).catch(() => {
                     Message.info({
                         type: 'info',

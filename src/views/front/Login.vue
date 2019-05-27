@@ -2,7 +2,7 @@
     <div class="login-container">
         <div class="login-form">
             <h2 class="title"><i><font-awesome-icon icon="calendar-check"/></i>todo</h2>
-            <form>
+            <form v-on:submit.prevent>
                 <div class="login-input">
                     <input placeholder="账号" v-model="loginForm.account"/>
                     <span></span>
@@ -13,7 +13,7 @@
                     <span></span>
                     <label><font-awesome-icon icon="lock"/></label>
                 </div>
-                <div class="button" @click="login">登录</div>
+                <button class="button" @click="login">登录</button>
             </form>
         </div>
     </div>
@@ -21,6 +21,10 @@
 
 <script>
     import {Button,Form,FormItem,Input,Message} from 'element-ui'
+    import api from '@/Request/api';
+    import Request from '@/Request';
+    import Jwt from '@/utils/Jwt';
+    import qs from 'qs';
     export default {
         name: "Login",
         components:{
@@ -38,14 +42,39 @@
             }
         },
         methods:{
-            login(){
-                if(this.loginForm.account !== "lin" && this.loginForm.password !== "123456"){
+            async login(){
+                if(this.loginForm.account === "" || this.loginForm.password === ""){
                     Message.error({
-                        message:"账号不对，请确认",
+                        message:"请输入账号或者密码",
                         duration:2000
                     });
                 }else {
-                    this.$router.push({name:"todo"})
+                    let response;
+                    try{
+                        response = await this.$axios.post(api.login,qs.stringify({
+                            account:this.loginForm.account,
+                            password:this.loginForm.password,
+                        }))
+                    }catch (e) {
+                        if(process.env.NODE_ENV === 'development'){
+                            console.error(e);
+                        }
+                        return;
+                    }
+                    if(Request.handleException(this,response.data)){
+                        let token = response.data.data.token;
+                        Jwt.setToken(token);
+                        Message.success({
+                            message:response.data.msg,
+                            duration:2000
+                        });
+                        this.$router.push({name: "Todo"});
+                    }else {
+                        Message.error({
+                            message:response.data.msg,
+                            duration:2000
+                        });
+                    }
                 }
             }
         }
@@ -131,6 +160,8 @@
                 text-align: center;
                 font-size: 14px;
                 color: #fff;
+                border: none;
+                outline: none;
                 border-radius: 20px;
                 cursor: pointer;
             }
